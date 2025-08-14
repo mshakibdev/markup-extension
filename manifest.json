@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Page Headings Viewer",
+  "version": "1.0",
+  "description": "Displays all headings (H1–H6) of the current page with indentation and tags.",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_title": "Show Headings"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
