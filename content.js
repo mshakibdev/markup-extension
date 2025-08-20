@@ -1,6 +1,6 @@
 (() => {
     const PANEL_ID = "__content_panel__";
-    const INDENT_UNIT = 16; // px per heading level
+    const INDENT_UNIT = 32; // px per heading level
 
     // Toggle panel
     const existing = document.getElementById(PANEL_ID);
@@ -74,7 +74,7 @@
     header.className = "hp-header";
     const title = document.createElement("div");
     title.className = "hp-title";
-    title.textContent = "Outline (Body Only, nav skipped)";
+    title.textContent = "HTML TREE";
     const closeBtn = document.createElement("button");
     closeBtn.className = "hp-close";
     closeBtn.type = "button";
