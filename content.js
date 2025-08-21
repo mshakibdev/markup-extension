@@ -10,6 +10,54 @@
         return;
     }
 
+    // Tracking overlay that follows the element for some time
+    function highlightOverlayFollow(el, durationMs = 1500) {
+        const ID = "__hp_highlight_box__";
+        // Remove any existing
+        document.getElementById(ID)?.remove();
+
+        const box = document.createElement("div");
+        box.id = ID;
+        Object.assign(box.style, {
+            position: "fixed",
+            border: "2px dashed #3b82f6",
+            borderRadius: "4px",
+            pointerEvents: "none",
+            zIndex: "2147483647",
+            boxSizing: "border-box"
+        });
+        document.body.appendChild(box);
+
+        let running = true;
+        const update = () => {
+            if (!running || !el.isConnected) return;
+            const r = el.getBoundingClientRect();
+            // If the element currently has 0 size, keep trying (lazyload/layout shift)
+            box.style.left = r.left + "px";
+            box.style.top = r.top + "px";
+            box.style.width = r.width + "px";
+            box.style.height = r.height + "px";
+            requestAnimationFrame(update);
+        };
+
+        // Keep overlay synced during user scroll/resize too
+        const onScroll = () => running && update();
+        const onResize = () => running && update();
+        window.addEventListener("scroll", onScroll, true);
+        window.addEventListener("resize", onResize, true);
+
+        // Start the tracking loop
+        requestAnimationFrame(update);
+
+        // Auto-remove after duration
+        setTimeout(() => {
+            running = false;
+            window.removeEventListener("scroll", onScroll, true);
+            window.removeEventListener("resize", onResize, true);
+            box.remove();
+        }, durationMs);
+    }
+
     // ---------- Helpers ----------
     const isVisible = (el) => {
         const cs = getComputedStyle(el);
@@ -57,11 +105,31 @@
         item.appendChild(textWrap);
 
         item.addEventListener("click", () => {
-            targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
-            const oldOutline = targetEl.style.outline;
-            targetEl.style.outline = "2px dashed #3b82f6";
-            setTimeout(() => (targetEl.style.outline = oldOutline), 1200);
+            const target = targetEl; // always the actual element (e.g., <img>)
+
+            // Smooth scroll (nearest to avoid big jumps inside nested scrollers)
+            try {
+                target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+            } catch {
+                target.scrollIntoView(true);
+            }
+
+            // Make it focusable temporarily (helps if site has focus outlines)
+            const hadTabIndex = target.hasAttribute("tabindex");
+            if (!hadTabIndex) target.setAttribute("tabindex", "-1");
+
+            // Wait a couple of frames so lazy-load/layout shifts apply, then follow
+            let frames = 0;
+            const afterScroll = () => {
+                frames++;
+                if (frames < 2) return requestAnimationFrame(afterScroll); // 2 rAFs ~ one paint cycle
+                target.focus({ preventScroll: true });
+                highlightOverlayFollow(target, 1500);
+                if (!hadTabIndex) target.removeAttribute("tabindex");
+            };
+            requestAnimationFrame(afterScroll);
         });
+
 
         return item;
     };
