@@ -68,7 +68,7 @@
     const SEMANTIC_OWNER_SELECTOR = [
         "h1","h2","h3","h4","h5","h6",
         "p","ul","ol","li",
-        "button","label","summary","figcaption",
+        "button","a","label","summary","figcaption",
         "th","td","dt","dd",
         "[role='button']","[role='link']",
         "figure","section","article","aside","main","header","footer","nav"
