@@ -67,6 +67,64 @@
     return chunks.join(" ").replace(/\s+/g, " ").trim();
   }
 
+  function showTooltip(sidebar, target, text, variant = "default") {
+    if (!sidebar || !target) return;
+
+    // Reuse or create tooltip
+    let tooltip = sidebar.querySelector(".tooltip");
+    if (!tooltip) {
+      tooltip = document.createElement("span");
+      tooltip.className = "tooltip";
+      sidebar.appendChild(tooltip);
+    }
+
+    tooltip.textContent = text;
+    tooltip.classList.remove("error");
+
+    if (variant === "error") tooltip.classList.add("error");
+
+    // find the nearest scrollable parent (tree in your case)
+    const scrollContainer = target.closest(".tree") || sidebar;
+
+    const sidebarRect = sidebar.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const scrollRect = scrollContainer.getBoundingClientRect();
+
+    // get scroll offsets from the scrollable container
+    const scrollLeft = scrollContainer.scrollLeft;
+    const scrollTop = scrollContainer.scrollTop;
+
+    // Calculate position relative to sidebar coordinate system
+    const left =
+      targetRect.left - sidebarRect.left + targetRect.width / 2 + scrollLeft;
+    const top = targetRect.bottom - scrollRect.top + scrollTop + 6;
+    //  const top = targetRect.top - scrollRect.top + scrollTop + targetRect.height + 6;
+
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+    tooltip.classList.add("visible");
+
+    // Keep tooltip within sidebar bounds
+    const tooltipRect = tooltip.getBoundingClientRect();
+    if (tooltipRect.right > sidebarRect.right) {
+      tooltip.style.left = `${
+        left - (tooltipRect.right - sidebarRect.right) - 8
+      }px`;
+    }
+    if (tooltipRect.left < sidebarRect.left) {
+      tooltip.style.left = `${Math.max(8, left)}px`;
+    }
+  }
+
+  function hideTooltip(sidebar) {
+    const tooltip = sidebar?.querySelector(".tooltip");
+
+    if (tooltip) {
+      tooltip.classList.remove("visible");
+      tooltip.remove();
+    }
+  }
+
   /** -----------------------------------------------------
    * HIGHLIGHT OVERLAY
    * ----------------------------------------------------- */
@@ -146,6 +204,30 @@
     }
 
     item.append(badge, textWrap);
+
+    // Missing attribute detection + tooltip
+    let missingType = null;
+
+    if (badgeText === "A" && (!subText || subText === "#")) {
+      missingType = "Missing href";
+    }
+    if (badgeText === "IMG" && (!mainText || mainText === "empty alt text")) {
+      missingType = "Missing alt";
+    }
+
+    if (missingType) {
+      item.classList.add("missing");
+
+      const panel = document.getElementById(PANEL_ID);
+      if (panel) {
+        item.addEventListener("mouseenter", () =>
+          showTooltip(panel, item, missingType, "error")
+        );
+        item.addEventListener("mouseleave", () => hideTooltip(panel));
+      }
+    }
+
+    // Click to scroll and highlight
 
     item.addEventListener("click", () => {
       targetEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -304,6 +386,9 @@
     .filter((el) => !processedNodes.has(el))
     .filter(isVisible);
 
+  /**
+    Render the HTML tree structure into the given panel.
+     */
   const renderHTMLTree = (panel) => {
     let lastHeadingLevel = 0;
     let lastKey = "";
@@ -453,6 +538,50 @@
     }
   };
 
+  const renderEmptyLinks = (panel) => {
+    const links = [];
+    document.querySelectorAll("a").forEach((a) => {
+      if (!isVisible(a)) return;
+      const href = (a.getAttribute("href") || "").trim();
+      if (!href || href === "#")
+        links.push({ text: collectFreeText(a) || "(no text)", href });
+    });
+
+    if (links.length === 0) {
+      const msg = document.createElement("div");
+      msg.textContent = "No empty href links found.";
+      panel.appendChild(msg);
+      return;
+    }
+
+    for (const link of links) {
+      const item = createItem("A", link.text, link.href, 0, link.el);
+      panel.appendChild(item);
+    }
+  };
+
+  const renderEmptyAltImgs = (panel) => {
+    const imgs = [];
+    document.querySelectorAll("img").forEach((img) => {
+      if (!isVisible(img)) return;
+      const alt = (img.getAttribute("alt") || "").trim();
+      if (!alt)
+        imgs.push({ src: img.getAttribute("src") || "empty url", el: img });
+    });
+
+    if (imgs.length === 0) {
+      const msg = document.createElement("div");
+      msg.textContent = "No images with empty alt found.";
+      panel.appendChild(msg);
+      return;
+    }
+
+    for (const img of imgs) {
+      const item = createItem("IMG", "empty alt text", img.src, 0, img.el);
+      panel.appendChild(item);
+    }
+  };
+
   /** -----------------------------------------------------
    * STATS
    * ----------------------------------------------------- */
@@ -509,6 +638,42 @@
   };
 
   /** -----------------------------------------------------
+   * TAB SYSTEM
+   * ----------------------------------------------------- */
+  const makeTabs = (panel, tabs) => {
+    const tabHeader = document.createElement("div");
+    tabHeader.className = "hp-tab-header";
+    const tabBodies = {};
+    const contentContainer = document.createElement("div");
+    contentContainer.className = "hp-content";
+
+    for (const [id, label, builder] of tabs) {
+      const btn = document.createElement("div");
+      btn.className = "hp-tab";
+      btn.textContent = label;
+      tabHeader.appendChild(btn);
+
+      const body = document.createElement("div");
+      body.style.display = "none";
+      contentContainer.appendChild(body);
+      tabBodies[id] = { btn, body, builder };
+
+      btn.addEventListener("click", () => {
+        for (const t of Object.values(tabBodies)) {
+          t.body.style.display = "none";
+          t.btn.classList.remove("active");
+        }
+        body.style.display = "block";
+        btn.classList.add("active");
+        if (!body.hasChildNodes()) builder(body);
+      });
+    }
+
+    panel.append(tabHeader, contentContainer);
+    tabBodies[Object.keys(tabBodies)[0]].btn.click(); // activate first tab
+  };
+
+  /** -----------------------------------------------------
    * MAIN EXECUTION
    * ----------------------------------------------------- */
   const existing = document.getElementById(PANEL_ID);
@@ -522,8 +687,15 @@
   document.body.appendChild(panel);
 
   // Render structure and stats
-  renderHTMLTree(panel);
-  renderStats(panel);
+  // renderHTMLTree(panel);
+  // renderStats(panel);
+
+  makeTabs(panel, [
+    ["tree", "HTML Tree", (b) => renderHTMLTree(b)],
+    ["href", "Missing href", (b) => renderEmptyLinks(b)],
+    ["alt", "Missing alt img", (b) => renderEmptyAltImgs(b)],
+    ["stats", "Stats", (b) => renderStats(b)],
+  ]);
 
   // Handle toggles
   panel.querySelectorAll("input[data-toggle]").forEach((input) =>
