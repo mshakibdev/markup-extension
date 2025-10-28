@@ -184,7 +184,7 @@
 
     const badge = Object.assign(document.createElement("span"), {
       className: "hp-badge",
-      textContent: badgeText,
+      textContent: badgeText.toLowerCase(),
     });
 
     const main = Object.assign(document.createElement("div"), {

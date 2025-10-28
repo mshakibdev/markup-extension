@@ -199,6 +199,7 @@
   cursor: pointer;
   font-weight: 500;
   border-bottom: 2px solid transparent;
+  color: #292929;
 }
 .hp-tab.active {
   border-bottom-color: #3b82f6;
@@ -258,4 +259,8 @@
   margin-right: 420px;
   width: calc(100% - 420px);
   transition: transform 0.35s ease, width 0.35s ease;
+}
+
+.hp-content {
+  color: #6b7280;
 }
