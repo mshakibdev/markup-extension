@@ -6,6 +6,7 @@
   const HIGHLIGHT_CLASS = "__heading_highlight__";
   const INDENT_UNIT = 32;
   const MAX_Z_INDEX = "2147483647";
+  const PANEL_WIDTH = 420;
 
   /** -----------------------------------------------------
    * UTILS
@@ -208,7 +209,10 @@
     // Missing attribute detection + tooltip
     let missingType = null;
 
-    if (badgeText === "A" && (!subText || subText === "#")) {
+    if (
+      badgeText === "A" &&
+      (!subText || subText === "#" || subText.startsWith("#"))
+    ) {
       missingType = "Missing href";
     }
     if (badgeText === "IMG" && (!mainText || mainText === "empty alt text")) {
@@ -293,6 +297,36 @@
       toggleGroup.appendChild(wrap);
     }
 
+    // create sidebar toggle
+    const sidebarToggleWrap = document.createElement("div");
+    sidebarToggleWrap.className = "hp-toggle-wrap";
+    sidebarToggleWrap.innerHTML = `
+      <div class="hp-title">Make Sidebar</div>
+      <label class="hp-switch">
+        <input type="checkbox" id="hp-sidebar-width-toggle">
+        <span class="hp-slider"></span>
+      </label>`;
+
+    const sidebarWidthToggle = sidebarToggleWrap.querySelector(
+      "#hp-sidebar-width-toggle"
+    );
+
+    sidebarWidthToggle.addEventListener("change", (e) => {
+      if (e.target.checked) {
+        // Expand into sidebar
+        panel.classList.add("wide-sidebar");
+        panel.style.width = PANEL_WIDTH + "px";
+        document.body.classList.add("body-shifted");
+      } else {
+        // Back to popover
+        panel.classList.remove("wide-sidebar");
+        panel.style.width = "420px";
+
+        document.body.classList.remove("body-shifted");
+      }
+    });
+
+    header.appendChild(sidebarToggleWrap);
     panel.append(header, toggleGroup);
 
     return { panel, closeBtn };
@@ -541,10 +575,24 @@
   const renderEmptyLinks = (panel) => {
     const links = [];
     document.querySelectorAll("a").forEach((a) => {
-      if (!isVisible(a)) return;
+      // if (!isVisible(a)) return;
       const href = (a.getAttribute("href") || "").trim();
-      if (!href || href === "#")
-        links.push({ text: collectFreeText(a) || "(no text)", href });
+      const text = collectFreeText(a) || "(no text)";
+
+      // Mark as missing if:
+      // - href is empty
+      // - href is just "#"
+      // - href starts with "#something"
+      // - href contains a hash fragment (like "https://example.com/#about")
+      const isMissingHref =
+        !href ||
+        href === "#" ||
+        href.startsWith("#") ||
+        /https?:\/\/[^#]+#/.test(href);
+
+      if (isMissingHref) {
+        links.push({ text, href, el: a });
+      }
     });
 
     if (links.length === 0) {
@@ -720,6 +768,7 @@
     panel.remove();
     document.removeEventListener("pointerdown", outsideClick, true);
     window.removeEventListener("keydown", onKeydown, true);
+    document.body.classList.remove("body-shifted");
   };
 
   const outsideClick = (e) => {
